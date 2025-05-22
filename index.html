@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notification Test Console</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.7.1/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.7.1/firebase-messaging-compat.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(45deg, #4caf50, #45a049);
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+      }
+
+      .content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        padding: 30px;
+      }
+
+      .section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 25px;
+        border: 2px solid #e9ecef;
+      }
+
+      .section h2 {
+        color: #333;
+        margin-bottom: 20px;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #555;
+      }
+
+      .form-group input,
+      .form-group textarea,
+      .form-group select {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+      }
+
+      .form-group input:focus,
+      .form-group textarea:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: #4caf50;
+      }
+
+      .btn {
+        background: linear-gradient(45deg, #4caf50, #45a049);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        transition: transform 0.2s, box-shadow 0.2s;
+        width: 100%;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+      }
+
+      .btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .console {
+        grid-column: 1 / -1;
+        background: #1a1a1a;
+        color: #00ff00;
+        padding: 20px;
+        border-radius: 10px;
+        font-family: "Courier New", monospace;
+        max-height: 400px;
+        overflow-y: auto;
+        border: 2px solid #333;
+      }
+
+      .console h3 {
+        color: #fff;
+        margin-bottom: 15px;
+        font-size: 1.2rem;
+      }
+
+      .log-entry {
+        margin-bottom: 10px;
+        padding: 8px;
+        border-left: 3px solid #00ff00;
+        background: rgba(0, 255, 0, 0.1);
+      }
+
+      .log-entry.error {
+        border-left-color: #ff4444;
+        background: rgba(255, 68, 68, 0.1);
+        color: #ff4444;
+      }
+
+      .log-entry.info {
+        border-left-color: #44aaff;
+        background: rgba(68, 170, 255, 0.1);
+        color: #44aaff;
+      }
+
+      .status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 10px;
+      }
+
+      .status.connected {
+        background: #4caf50;
+        color: white;
+      }
+
+      .status.disconnected {
+        background: #f44336;
+        color: white;
+      }
+
+      @media (max-width: 768px) {
+        .content {
+          grid-template-columns: 1fr;
+          gap: 20px;
+          padding: 20px;
+        }
+
+        .header h1 {
+          font-size: 2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🔔 Notification Test Console</h1>
+        <p>Test Firebase messaging and SSE notifications</p>
+      </div>
+
+      <div class="content">
+        <div class="section">
+          <h2>📤 Send Notification</h2>
+          <div class="form-group">
+            <label for="userId">User ID:</label>
+            <input type="text" id="userId" placeholder="Enter UUID" />
+          </div>
+          <div class="form-group">
+            <label for="fcmToken">FCM Token:</label>
+            <input
+              type="text"
+              id="fcmToken"
+              placeholder="FCM Token (optional)"
+              readonly
+            />
+            <button
+              type="button"
+              class="btn"
+              id="getFcmBtn"
+              style="margin-top: 10px; font-size: 14px; padding: 8px 15px"
+            >
+              Get FCM Token
+            </button>
+          </div>
+          <div class="form-group">
+            <label for="title">Title:</label>
+            <input type="text" id="title" placeholder="Notification title" />
+          </div>
+          <div class="form-group">
+            <label for="message">Message:</label>
+            <textarea
+              id="message"
+              rows="3"
+              placeholder="Notification message"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="type">Type:</label>
+            <select id="type">
+              <option value="email">email</option>
+              <option value="app">app</option>
+            </select>
+          </div>
+          <button class="btn" id="sendBtn">Send Notification</button>
+        </div>
+
+        <div class="section">
+          <h2>
+            📥 SSE Connection
+            <span class="status disconnected" id="sseStatus">Disconnected</span>
+          </h2>
+          <div class="form-group">
+            <label for="sseUserId">User ID for SSE:</label>
+            <input
+              type="text"
+              id="sseUserId"
+              placeholder="Enter UUID for SSE connection"
+            />
+          </div>
+          <button class="btn" id="connectBtn">Connect to SSE</button>
+          <button
+            class="btn"
+            id="disconnectBtn"
+            style="background: #f44336; margin-top: 10px"
+            disabled
+          >
+            Disconnect
+          </button>
+        </div>
+
+        <div class="console">
+          <h3>📜 Console Log</h3>
+          <div id="consoleOutput"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyA518-4pL4CeaKW4nPzeD2SNSHmiNAefGQ",
+        authDomain: "notify-fmc.firebaseapp.com",
+        projectId: "notify-fmc",
+        storageBucket: "notify-fmc.firebasestorage.app",
+        messagingSenderId: "470855143798",
+        appId: "1:470855143798:web:e278e21ffe042bc454ea57",
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+
+      // Initialize variables
+      let eventSource = null;
+      const consoleOutput = document.getElementById("consoleOutput");
+      const sseStatus = document.getElementById("sseStatus");
+
+      // Logging function
+      function log(message, type = "info") {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement("div");
+        logEntry.className = `log-entry ${type}`;
+        logEntry.innerHTML = `[${timestamp}] ${message}`;
+        consoleOutput.appendChild(logEntry);
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+
+        // Also log to browser console
+        console.log(`[${timestamp}] ${message}`);
+      }
+
+      // Send notification function
+      async function sendNotification() {
+        const userId = document.getElementById("userId").value.trim();
+        const fcmToken = document.getElementById("fcmToken").value.trim();
+        const title = document.getElementById("title").value.trim();
+        const message = document.getElementById("message").value.trim();
+        const type = document.getElementById("type").value;
+
+        if (!userId || !title || !message) {
+          log("❌ Please fill in User ID, Title, and Message fields", "error");
+          return;
+        }
+
+        try {
+          log(`📤 Sending notification to user: ${userId}`, "info");
+
+          const url = new URL(
+            "https://api.notah.ai/notify/app",
+            window.location.origin
+          );
+          url.searchParams.append("user_id", userId);
+          if (fcmToken) {
+            url.searchParams.append("fcm_token", fcmToken);
+          }
+
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: message,
+              title: title,
+              type_: type,
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            log(
+              `✅ Notification sent successfully: ${JSON.stringify(result)}`,
+              "info"
+            );
+          } else {
+            const error = await response.json();
+            log(
+              `❌ Failed to send notification: ${JSON.stringify(error)}`,
+              "error"
+            );
+          }
+        } catch (error) {
+          log(`❌ Error sending notification: ${error.message}`, "error");
+        }
+      }
+
+      // Connect to SSE
+      function connectSSE() {
+        const userId = document.getElementById("sseUserId").value.trim();
+
+        if (!userId) {
+          log("❌ Please enter User ID for SSE connection", "error");
+          return;
+        }
+
+        if (eventSource) {
+          eventSource.close();
+        }
+
+        try {
+          log(`🔌 Connecting to SSE for user: ${userId}`, "info");
+
+          const sseUrl = `https://api.notah.ai/notify/sse/${userId}`;
+          eventSource = new EventSource(sseUrl);
+
+          eventSource.onopen = function (event) {
+            log("✅ SSE connection established", "info");
+            sseStatus.textContent = "Connected";
+            sseStatus.className = "status connected";
+            document.getElementById("connectBtn").disabled = true;
+            document.getElementById("disconnectBtn").disabled = false;
+          };
+
+          eventSource.onmessage = function (event) {
+            log(`📨 SSE Message received: ${event.data}`, "info");
+          };
+
+          eventSource.onerror = function (event) {
+            log("❌ SSE connection error occurred", "error");
+            sseStatus.textContent = "Error";
+            sseStatus.className = "status disconnected";
+          };
+
+          eventSource.addEventListener("notification", function (event) {
+            log(`🔔 Notification event received: ${event.data}`, "info");
+          });
+        } catch (error) {
+          log(`❌ Error connecting to SSE: ${error.message}`, "error");
+        }
+      }
+
+      // Disconnect SSE
+      function disconnectSSE() {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+          log("🔌 SSE connection closed", "info");
+          sseStatus.textContent = "Disconnected";
+          sseStatus.className = "status disconnected";
+          document.getElementById("connectBtn").disabled = false;
+          document.getElementById("disconnectBtn").disabled = true;
+        }
+      }
+
+      // Initialize Firebase Messaging
+      function initializeFirebaseMessaging() {
+        try {
+          const messaging = firebase.messaging();
+
+          // Handle foreground messages
+          messaging.onMessage((payload) => {
+            log(
+              `🔥 Firebase foreground message: ${JSON.stringify(payload)}`,
+              "info"
+            );
+          });
+
+          log("🔥 Firebase messaging initialized", "info");
+          return messaging;
+        } catch (error) {
+          log(
+            `❌ Firebase messaging initialization error: ${error.message}`,
+            "error"
+          );
+          return null;
+        }
+      }
+
+      // Get FCM Token
+      async function getFCMToken() {
+        try {
+          log("🔑 Requesting FCM token...", "info");
+
+          const messaging = firebase.messaging();
+
+          // Request notification permission
+          const permission = await Notification.requestPermission();
+
+          if (permission === "granted") {
+            log("✅ Notification permission granted", "info");
+
+            // Get FCM token
+            const token = await messaging.getToken({
+              vapidKey:
+                "BBYDWGopgOgbxJ0z90egD_V7F94rHBadTR4XzA4Z1JHf_Mlvl0_oXD_SyIvmTYPvTPN2bNyEttaguZN-iO-ShSo",
+            });
+
+            if (token) {
+              document.getElementById("fcmToken").value = token;
+              log(
+                `🔑 FCM Token obtained: ${token.substring(0, 50)}...`,
+                "info"
+              );
+              log("💡 FCM Token has been filled automatically", "info");
+            } else {
+              log("❌ No registration token available", "error");
+            }
+          } else if (permission === "denied") {
+            log("❌ Notification permission denied", "error");
+          } else {
+            log("⚠️ Notification permission dismissed", "error");
+          }
+        } catch (error) {
+          log(`❌ Error getting FCM token: ${error.message}`, "error");
+        }
+      }
+
+      // Event listeners
+      document
+        .getElementById("sendBtn")
+        .addEventListener("click", sendNotification);
+      document
+        .getElementById("connectBtn")
+        .addEventListener("click", connectSSE);
+      document
+        .getElementById("disconnectBtn")
+        .addEventListener("click", disconnectSSE);
+      document
+        .getElementById("getFcmBtn")
+        .addEventListener("click", getFCMToken);
+
+      // Generate sample UUIDs for testing
+      function generateUUID() {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+          /[xy]/g,
+          function (c) {
+            const r = (Math.random() * 16) | 0;
+            const v = c == "x" ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          }
+        );
+      }
+
+      // Initialize
+      document.addEventListener("DOMContentLoaded", function () {
+        // Set sample values
+        document.getElementById("userId").value = generateUUID();
+        document.getElementById("sseUserId").value =
+          document.getElementById("userId").value;
+        document.getElementById("title").value = "Test Notification";
+        document.getElementById("message").value =
+          "This is a test notification message";
+
+        log("🚀 Application initialized", "info");
+        log(
+          '💡 Fill in the form and click "Send Notification" to test the API',
+          "info"
+        );
+        log(
+          '💡 Use "Connect to SSE" to listen for real-time notifications',
+          "info"
+        );
+
+        // Initialize Firebase
+        initializeFirebaseMessaging();
+      });
+
+      // Handle page unload
+      window.addEventListener("beforeunload", function () {
+        if (eventSource) {
+          eventSource.close();
+        }
+      });
+    </script>
+  </body>
+</html>
